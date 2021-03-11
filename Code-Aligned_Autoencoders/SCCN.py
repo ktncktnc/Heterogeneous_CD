@@ -1,3 +1,5 @@
+from change_detector import ChangeDetector
+
 import os
 import gc
 

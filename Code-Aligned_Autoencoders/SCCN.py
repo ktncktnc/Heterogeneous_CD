@@ -5,11 +5,11 @@ import gc
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import tensorflow as tf
+from tensorflow_addons.metrics import F1Score
+from tensorflow.keras.layers import Dense, Conv2D
+from tensorflow.keras.activations import softmax
+from tensorflow.keras import Sequential
 import datasets
-from change_detector import ChangeDetector
-from image_translation import CouplingNetwork
-from config import get_config_SCCN
-from decorators import image_to_tensorboard, timed
 from tqdm import trange
 import numpy as np
 
@@ -36,77 +36,47 @@ class SCCN(ChangeDetector):
 
         super().__init__(**kwargs)
 
-        self.l2_lambda = kwargs.get("l2_lambda", 1e-6)
-        self.Lambda = kwargs.get("kernels_lambda", 1)
+        self.x_resnet = Sequential(
+        [
+            Conv2D(filters = 16, kernel_size = (3,3), activation = 'relu', strides = 1, padding = 'same'),
+            Conv2D(filters = 32, kernel_size = (3,3), activation = 'relu', strides = 1, padding = 'same'),
+            Conv2D(filters = 64, kernel_size = (3,3), activation = 'relu', strides = 1, padding = 'same')
 
-        # encoders of X and Y
-        self._enc_x = CouplingNetwork(
-            **translation_spec["enc_X"], name="enc_X", l2_lambda=self.l2_lambda,
+        ]
         )
-        self._enc_y = CouplingNetwork(
-            **translation_spec["enc_Y"], name="enc_Y", l2_lambda=self.l2_lambda,
-        )
+        self.y_resnet = Sequential(
+            [
+                Conv2D(filters = 16, kernel_size = (3,3), activation = 'relu', strides = 1, padding = 'same'),
+                Conv2D(filters = 32, kernel_size = (3,3), activation = 'relu', strides = 1, padding = 'same'),
+                Conv2D(filters = 64, kernel_size = (3,3), activation = 'relu', strides = 1, padding = 'same')
 
-        # decoder of X and Y
-        self._dec_x = CouplingNetwork(
-            **translation_spec["dec_X"],
-            name="dec_X",
-            decoder=True,
-            l2_lambda=self.l2_lambda,
+            ]
         )
-        self._dec_y = CouplingNetwork(
-            **translation_spec["dec_Y"],
-            name="dec_Y",
-            decoder=True,
-            l2_lambda=self.l2_lambda,
+        self.discriminator = Sequential(
+            [
+                Dense(1024,activation='softmax', name='fc1'),
+                Dense(1024, activation='relu', name='fc2'),
+                Dense(2, activation='softmax', name='predictions')
+            ]
         )
-
         self.loss_object = tf.keras.losses.MeanSquaredError()
-
+        self._optimizer_all = tf.keras.optimizers.Adam(learning_rate= 0.01)
         self.train_metrics["code"] = tf.keras.metrics.Sum(name="krnls MSE sum")
         self.train_metrics["l2"] = tf.keras.metrics.Sum(name="l2 MSE sum")
+        self.train_metrics['f1'] = F1Score()
 
-    @image_to_tensorboard()
-    def enc_x(self, inputs, training=False):
-        """ Wraps encoder call for TensorBoard printing and image save """
-        return self._enc_x(inputs, training)
 
-    @image_to_tensorboard()
-    def enc_y(self, inputs, training=False):
-        return self._enc_y(inputs, training)
-
-    @image_to_tensorboard()
-    def dec_x(self, inputs, training=False):
-        return self._dec_x(inputs, training)
-
-    @image_to_tensorboard()
-    def dec_y(self, inputs, training=False):
-        return self._dec_y(inputs, training)
-
-    def __call__(self, inputs, training=False, pretraining=False):
+    def __call__(self, inputs):
         x, y = inputs
         tf.debugging.Assert(tf.rank(x) == 4, [x.shape])
         tf.debugging.Assert(tf.rank(y) == 4, [y.shape])
-
-        if training:
-            x_code, y_code = self._enc_x(x, training), self._enc_y(y, training)
-            if pretraining:
-                x_tilde, y_tilde = (
-                    self._dec_x(x_code, training),
-                    self._dec_y(y_code, training),
-                )
-
-                retval = [x_tilde, y_tilde]
-            else:
-                retval = [x_code, y_code]
-            return retval
-
-        else:
-            x_code, y_code = self.enc_x(x, name="x_code"), self.enc_y(y, name="y_code")
-            difference_img = self._domain_difference_img(x_code, y_code)
-            retval = difference_img
-
-        return retval
+        x = self.x_resnet(x)
+        print('x done')
+        y = self.y_resnet(y)
+        print('y done')
+        res = x + y
+        res = self.discriminator(res)
+        return res
 
     def _train_step(self, x, y, clw):
         """
@@ -115,21 +85,16 @@ class SCCN(ChangeDetector):
         y - tensor of shape (bs, ps_h, ps_w, c_y)
         clw - cross_loss_weight, tensor of shape (bs, ps_h, ps_w, 1)
         """
+        print("\nx_shape: ", x.shape, "y_shape: ", y.shape, "gt shape: ", clw.shape)
         with tf.GradientTape() as tape:
-            x_code, y_code = self([x, y], training=True)
-
-            l2_loss = sum(self._enc_x.losses) + sum(self._enc_y.losses)
-            targets = self._enc_x.trainable_variables + self._enc_y.trainable_variables
-            code_loss = self.loss_object(x_code, y_code, clw)
-            tot_loss = code_loss - self.Lambda * tf.reduce_mean(clw)
-            gradients = tape.gradient(tot_loss + l2_loss, targets)
-            if self.clipnorm is not None:
-                gradients, _ = tf.clip_by_global_norm(gradients, self.clipnorm)
-
-            self._optimizer_all.apply_gradients(zip(gradients, targets))
+            cm = self([x, y], training=True)
+            loss_value = self.loss_object(y_true = clw, y_pred = cm)
+            gradients = tape.gradient(loss_value, self.trainable_variables)
+            self._optimizer_all.apply_gradients(zip(gradients, self.trainable_variables))
 
         self.train_metrics["code"].update_state(code_loss)
         self.train_metrics["l2"].update_state(l2_loss)
+        self.train_metrics["f1"].update_state(y_true = clw, y_pred = cm)
 
     @timed
     def pretrain(
@@ -186,31 +151,9 @@ def test(DATASET="Texas", CONFIG=None):
     6. Evaluate the change detection scheme
         a. change_map = threshold [(x - f_y(y))/2 + (y - f_x(x))/2]
     """
-    if CONFIG is None:
-        CONFIG = get_config_SCCN(DATASET)
-    x_im, y_im, EVALUATE, (C_X, C_Y) = datasets.fetch(DATASET, **CONFIG)
-    if tf.test.is_gpu_available() and not CONFIG["debug"]:
-        C_CODE = CONFIG["C_CODE"]
-        TRANSLATION_SPEC = {
-            "enc_X": {
-                "input_chs": C_X,
-                "filter_spec": [C_CODE, C_CODE, C_CODE, C_CODE],
-            },
-            "enc_Y": {
-                "input_chs": C_Y,
-                "filter_spec": [C_CODE, C_CODE, C_CODE, C_CODE],
-            },
-            "dec_X": {"input_chs": C_CODE, "filter_spec": [C_X]},
-            "dec_Y": {"input_chs": C_CODE, "filter_spec": [C_Y]},
-        }
-    else:
-        C_CODE = 1
-        TRANSLATION_SPEC = {
-            "enc_X": {"input_chs": C_X, "filter_spec": [C_CODE]},
-            "enc_Y": {"input_chs": C_Y, "filter_spec": [C_CODE]},
-            "dec_X": {"input_chs": C_CODE, "filter_spec": [C_X]},
-            "dec_Y": {"input_chs": C_CODE, "filter_spec": [C_Y]},
-        }
+
+    y_im, x_im, EVALUATE, (C_Y, C_X) = datasets.fetch(DATASET, **CONFIG)
+
     cd = SCCN(TRANSLATION_SPEC, **CONFIG)
     training_time = 0
     Pu = tf.expand_dims(tf.ones(x_im.shape[:-1], dtype=tf.float32), -1)
@@ -238,5 +181,4 @@ def test(DATASET="Texas", CONFIG=None):
 
 
 if __name__ == "__main__":
-    test("Texas")
     test("California")

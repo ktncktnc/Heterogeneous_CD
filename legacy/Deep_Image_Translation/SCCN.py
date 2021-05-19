@@ -42,6 +42,7 @@ class SCCN(object):
     def __init__(self, img_X, img_Y, mask, folder):
         self.mask = mask
         self.int_mask = (1 - 2*(mask*1.0)).astype(np.float32)
+        self.int_mask = np.expand_dims(self.int_mask, axis = (0,3))
         self.folder = folder
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
@@ -257,7 +258,7 @@ class SCCN(object):
             print("Compute loss")
             self.Loss = tf.math.maximum(tf.reduce_mean(
                 tf.multiply(self.int_mask, self.Diff)
-            ))
+            ), 0)
             # self.Loss has shape (1)
 
     def pretrain(self):

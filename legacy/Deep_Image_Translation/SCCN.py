@@ -41,6 +41,7 @@ pre_EPOCH = 250
 class SCCN(object):
     def __init__(self, img_X, img_Y, mask, folder):
         self.mask = mask
+        self.int_mask = 1 - 2*(self.mask*1)
         self.folder = folder
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
@@ -57,9 +58,6 @@ class SCCN(object):
             dtype=tf.float32, shape=self.shape_2, name="Input_Y"
         )
 
-        self.P = tf.placeholder(
-            shape=[1, self.shape_1[1], self.shape_1[2], 1], dtype=tf.float32, name="Pu"
-        )
 
         self.E_x = self.E_X()
         self.E_y = self.E_Y()
@@ -257,9 +255,9 @@ class SCCN(object):
             )
             # self.Diff has shape (Batch, width, height, 1)
 
-            self.Loss = tf.reduce_mean(
-                tf.multiply(self.P, self.Diff)
-            ) - LAMBDA * tf.reduce_mean(self.P)
+            self.Loss = tf.math.maximum(tf.reduce_mean(
+                tf.multiply(self.int_mask, self.Diff)
+            ))
             # self.Loss has shape (1)
 
     def pretrain(self):
@@ -354,7 +352,7 @@ class SCCN(object):
                     "Y", tf.cast((self.Input_Y + 1.0) / 2.0 * 255, tf.uint8)
                 )
                 tf.summary.image("D_Y", tf.cast((self.D_y + 1.0) / 2.0 * 255, tf.uint8))
-            tf.summary.image("One minus Pu", tf.cast((1 - self.P) * 255, tf.uint8))
+            #tf.summary.image("One minus Pu", tf.cast((1 - self.P) * 255, tf.uint8))
             tf.summary.image("Diff", tf.cast(self.Diff * 255, tf.uint8))
             tf.summary.scalar("Loss", self.Loss)
             tf.summary.scalar("Mean_diff", tf.reduce_mean(self.Diff))
@@ -403,7 +401,6 @@ class SCCN(object):
                         feed_dict={
                             self.Input_X: self.img_X,
                             self.Input_Y: self.img_Y,
-                            self.P: prob,
                         },
                     )
 

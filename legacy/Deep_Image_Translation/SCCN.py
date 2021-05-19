@@ -476,6 +476,7 @@ def run_model(which_ch1=None, which_ch2=None):
         t2 = block_reduce(t2, (4, 4, 1), np.mean)
         mask = np.array(mat["ROI"], dtype=bool)
         mask = block_reduce(mask, (4, 4), np.max)
+        print(mask)
         folder = "Results/SCCN/California/"
     elif DATASET == 0:
         mat = scipy.io.loadmat("data/Texas/Cross-sensor-Bastrop-data.mat")

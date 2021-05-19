@@ -41,7 +41,7 @@ pre_EPOCH = 250
 class SCCN(object):
     def __init__(self, img_X, img_Y, mask, folder):
         self.mask = mask
-        self.int_mask = 1 - 2*(self.mask*1)
+        self.int_mask = (1 - 2*(mask*1.0)).astype(np.float32)
         self.folder = folder
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)

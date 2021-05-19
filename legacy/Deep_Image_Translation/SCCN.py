@@ -377,7 +377,6 @@ class SCCN(object):
                             feed_dict={
                                 self.Input_X: self.img_X + n_noise,
                                 self.Input_Y: self.img_Y + g_noise,
-                                self.P: prob,
                             },
                         )
 

@@ -254,7 +254,7 @@ class SCCN(object):
                 )
             )
             # self.Diff has shape (Batch, width, height, 1)
-
+            print("Compute loss")
             self.Loss = tf.math.maximum(tf.reduce_mean(
                 tf.multiply(self.int_mask, self.Diff)
             ))

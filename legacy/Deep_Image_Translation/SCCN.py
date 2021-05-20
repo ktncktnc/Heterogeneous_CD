@@ -257,8 +257,8 @@ class SCCN(object):
             # self.Diff has shape (Batch, width, height, 1)
             print("Compute loss")
             self.Loss = tf.math.maximum(tf.reduce_mean(
-                tf.multiply(self.int_mask, self.Diff)
-            ), 0)
+                tf.multiply(self.int_mask, tf.math.square(self.Diff))
+            + LAMBDA), 0)
             # self.Loss has shape (1)
 
     def pretrain(self):

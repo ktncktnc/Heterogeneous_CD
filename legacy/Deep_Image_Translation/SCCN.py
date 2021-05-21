@@ -245,7 +245,9 @@ class SCCN(object):
             bias = tf.Variable(
                 tf.constant(0.0, shape=[output_channel], dtype=tf.float32)
             )
+            batchnorm = tf.layers.BatchNormalization()
             outputs = outputs + bias
+            outputs = batchnorm(outputs)
             if activation is not None:
                 outputs = activation(outputs)
             return outputs

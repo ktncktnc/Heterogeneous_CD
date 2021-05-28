@@ -265,7 +265,7 @@ class SCCN(object):
             # self.Diff has shape (Batch, width, height, 1)
 
             self.Loss = tf.reduce_mean(
-                tf.multiply(tf.multiply(self.P, self.Diff), self.int_mask)
+                tf.multiply(self.P, self.Diff)
             ) - LAMBDA * tf.reduce_mean(tf.math.abs(self.P))
             self.Loss = tf.math.maximum(self.Loss, 0)
 
@@ -420,7 +420,8 @@ class SCCN(object):
                     if _iter > 10:
                         otsu = threshold_otsu(im)
                         prob = np.sign(otsu - im)
-
+                        print('prob: ', prob)
+                        print('otsu: ', otsu)
                     self.im = im
             except KeyboardInterrupt:
                 print("\nTraining interrupted")

@@ -419,7 +419,8 @@ class SCCN(object):
                     writer_train.add_summary(summary, _iter)
                     if _iter > 10:
                         otsu = threshold_otsu(im)
-                        prob = (np.sign(otsu - im) + 1) / 2
+                        prob = np.sign(otsu - im)
+
                     self.im = im
             except KeyboardInterrupt:
                 print("\nTraining interrupted")

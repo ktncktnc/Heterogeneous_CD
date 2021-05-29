@@ -420,8 +420,7 @@ class SCCN(object):
                     if _iter > 10:
                         otsu = threshold_otsu(im)
                         prob = np.sign(otsu - im)
-                        print('prob: ', prob)
-                        print('otsu: ', otsu)
+       
                     self.im = im
             except KeyboardInterrupt:
                 print("\nTraining interrupted")

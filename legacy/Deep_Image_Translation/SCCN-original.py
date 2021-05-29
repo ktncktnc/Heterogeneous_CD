@@ -257,11 +257,11 @@ class SCCN(object):
 
     def get_model(self):
         with tf.name_scope("SCCN_Loss"):
-            self.Diff = tf.sqrt(
+            self.Diff = 
                 tf.reduce_sum(
-                    tf.square(tf.subtract(self.E_x, self.E_y)), axis=-1, keep_dims=True
+                    tf.math.abs(tf.subtract(self.E_x, self.E_y)), axis=-1, keep_dims=True
                 )
-            )
+            
             # self.Diff has shape (Batch, width, height, 1)
 
             self.Loss = tf.reduce_mean(

@@ -150,7 +150,7 @@ class SCCN(object):
                 activation=tf.nn.sigmoid,
             )
 
-            couple_outputs_Y2 = self.coupling(
+            couple_outputs_Y2 = self.coupling(s
                 Input=couple_outputs_Y1,
                 output_channel=20,
                 scope=sc + "_2",

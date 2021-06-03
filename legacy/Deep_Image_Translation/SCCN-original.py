@@ -79,8 +79,17 @@ class SCCN(object):
         with tf.name_scope("E_X") as sc:
 
             # X Conv Layer
-            conv_outputs_X = self.conv_2d(
+            conv_outputs_X1 = self.conv_2d(
                 inputs=self.Input_X,
+                kernel_size=(3, 3),
+                output_channel=20,
+                scope=sc + "_c",
+                data_format="NHWC",
+                activation=tf.nn.sigmoid,
+            )
+
+            conv_outputs_X2 = self.conv_2d(
+                inputs=conv_outputs_X1,
                 kernel_size=(3, 3),
                 output_channel=20,
                 scope=sc + "_c",
@@ -90,7 +99,7 @@ class SCCN(object):
 
             # X Coupling Layer
             couple_outputs_X1 = self.coupling(
-                Input=conv_outputs_X,
+                Input=conv_outputs_X2,
                 output_channel=20,
                 scope=sc + "_1",
                 activation=tf.nn.sigmoid,
@@ -115,8 +124,17 @@ class SCCN(object):
         with tf.name_scope("E_Y") as sc:
 
             # Y Conv Layer
-            conv_outputs_Y = self.conv_2d(
+            conv_outputs_Y1 = self.conv_2d(
                 inputs=self.Input_Y,
+                kernel_size=(3, 3),
+                output_channel=20,
+                scope=sc + "_c",
+                data_format="NHWC",
+                activation=tf.nn.sigmoid,
+            )
+
+            conv_outputs_Y2 = self.conv_2d(
+                inputs=conv_outputs_Y1,
                 kernel_size=(3, 3),
                 output_channel=20,
                 scope=sc + "_c",
@@ -126,7 +144,7 @@ class SCCN(object):
 
             # Y Coupling Layer
             couple_outputs_Y1 = self.coupling(
-                Input=conv_outputs_Y,
+                Input=conv_outputs_Y2,
                 output_channel=20,
                 scope=sc + "_1",
                 activation=tf.nn.sigmoid,
@@ -257,17 +275,16 @@ class SCCN(object):
 
     def get_model(self):
         with tf.name_scope("SCCN_Loss"):
-            self.Diff = 
+            self.Diff = tf.sqrt(
                 tf.reduce_sum(
-                    tf.math.abs(tf.subtract(self.E_x, self.E_y)), axis=-1, keep_dims=True
+                    tf.square(tf.subtract(self.E_x, self.E_y)), axis=-1, keep_dims=True
                 )
-            
+            )
             # self.Diff has shape (Batch, width, height, 1)
 
             self.Loss = tf.reduce_mean(
                 tf.multiply(self.P, self.Diff)
-            ) - LAMBDA * tf.reduce_mean(tf.math.abs(self.P))
-            self.Loss = tf.math.maximum(self.Loss, 0)
+            ) - LAMBDA * tf.reduce_mean(self.P)
 
             # self.Loss has shape (1)
 
@@ -419,7 +436,7 @@ class SCCN(object):
                     writer_train.add_summary(summary, _iter)
                     if _iter > 10:
                         otsu = threshold_otsu(im)
-                        prob = np.sign(otsu - im)
+                        prob = (np.sign(otsu - im) + 1) / 2
        
                     self.im = im
             except KeyboardInterrupt:

@@ -41,8 +41,6 @@ pre_EPOCH = 250
 class SCCN(object):
     def __init__(self, img_X, img_Y, mask, folder):
         self.mask = mask
-        self.int_mask = (1 - 2*(mask*1.0)).astype(np.float32)
-        self.int_mask = np.expand_dims(self.int_mask, axis = (0,3))
         self.folder = folder
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
@@ -150,7 +148,7 @@ class SCCN(object):
                 activation=tf.nn.sigmoid,
             )
 
-            couple_outputs_Y2 = self.coupling(s
+            couple_outputs_Y2 = self.coupling(
                 Input=couple_outputs_Y1,
                 output_channel=20,
                 scope=sc + "_2",
@@ -230,9 +228,7 @@ class SCCN(object):
             bias = tf.Variable(
                 tf.constant(0.0, shape=[output_channel], dtype=tf.float32)
             )
-            #batchnorm = tf.layers.BatchNormalization()
-            #outputs = outputs + bias
-            #outputs = batchnorm(outputs)
+            outputs = outputs + bias
             if activation is not None:
                 outputs = activation(outputs)
             return outputs
@@ -265,10 +261,7 @@ class SCCN(object):
             bias = tf.Variable(
                 tf.constant(0.0, shape=[output_channel], dtype=tf.float32)
             )
-            #batchnorm = tf.layers.BatchNormalization()
-            #outputs = outputs + bias
-            #outputs = batchnorm(outputs)
-            
+            outputs = outputs + bias
             if activation is not None:
                 outputs = activation(outputs)
             return outputs
@@ -285,7 +278,6 @@ class SCCN(object):
             self.Loss = tf.reduce_mean(
                 tf.multiply(self.P, self.Diff)
             ) - LAMBDA * tf.reduce_mean(self.P)
-
             # self.Loss has shape (1)
 
     def pretrain(self):
@@ -437,7 +429,6 @@ class SCCN(object):
                     if _iter > 10:
                         otsu = threshold_otsu(im)
                         prob = (np.sign(otsu - im) + 1) / 2
-       
                     self.im = im
             except KeyboardInterrupt:
                 print("\nTraining interrupted")

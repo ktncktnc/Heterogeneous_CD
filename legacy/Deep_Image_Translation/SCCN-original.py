@@ -81,7 +81,7 @@ class SCCN(object):
                 inputs=self.Input_X,
                 kernel_size=(3, 3),
                 output_channel=20,
-                scope=sc + "_c",
+                scope=sc + "_c1",
                 data_format="NHWC",
                 activation=tf.nn.sigmoid,
             )
@@ -90,7 +90,7 @@ class SCCN(object):
                 inputs=conv_outputs_X1,
                 kernel_size=(3, 3),
                 output_channel=20,
-                scope=sc + "_c",
+                scope=sc + "_c2",
                 data_format="NHWC",
                 activation=tf.nn.sigmoid,
             )
@@ -126,7 +126,7 @@ class SCCN(object):
                 inputs=self.Input_Y,
                 kernel_size=(3, 3),
                 output_channel=20,
-                scope=sc + "_c",
+                scope=sc + "_c1",
                 data_format="NHWC",
                 activation=tf.nn.sigmoid,
             )
@@ -135,7 +135,7 @@ class SCCN(object):
                 inputs=conv_outputs_Y1,
                 kernel_size=(3, 3),
                 output_channel=20,
-                scope=sc + "_c",
+                scope=sc + "_c2",
                 data_format="NHWC",
                 activation=tf.nn.sigmoid,
             )
